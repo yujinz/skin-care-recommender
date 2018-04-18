@@ -2,11 +2,14 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+#project specific
+reviews_Beauty_5.json
+idx/
+3brothers.txt
+.DS_Store
 # C extensions
 *.so
-
-# Distribution / packaging
+Distribution / packaging
 .Python
 env/
 build/
