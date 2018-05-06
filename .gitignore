@@ -104,8 +104,13 @@ ENV/
 .mypy_cache/
 
 # data
+asin.txt
 asin_filtered.txt
+overall.txt
 queue.p
+result.txt
+reviewText.txt
 reviews.json
 reviews.p
-
+reviews_Beauty_5.json
+reviewText.txt

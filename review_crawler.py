@@ -10,7 +10,7 @@ import signal
 import os
 from collections import deque
 from time import sleep
-
+from math import sqrt
 
 class Review:
     def __init__(self, rating, summary, body, helpful, asin):
@@ -28,11 +28,9 @@ with open('useragent-strings.txt', 'r') as file:
 
 reviews_list = deque()
 urls = deque()
-    
-XPATH_AVAILABILITY = '//div[@id="availability-brief"]//text()'
 
 def add_asin(asin):
-    print(asin)
+    print("add " + asin)
     # Add URLs to the queue for scraping
     page = requests.get('https://www.amazon.com/product-reviews/' + asin,
                         headers = {'User-Agent': random.choice(useragent_strings)})
@@ -44,22 +42,39 @@ def add_asin(asin):
     else:
         # There is only one page of reviews
         num_pages = 1
-    for i in range(1, num_pages + 1):
-        urls.append('https://www.amazon.com/product-reviews/' + asin + '?pageNumber=' + str(i))
 
-def check_availability(asin):
+    # sampling sqrt number of reviews
+    num_sample = int(sqrt(num_pages))
+    stride = num_pages // num_sample
+
+    for i in range(1, num_pages + 1, stride):
+        urls.append('https://www.amazon.com/product-reviews/' + asin + '?pageNumber=' + str(i))
+    
+
+XPATH_AVAILABILITY = '//div[@id="availability-brief"]//text()'
+XPATH_SUBCATAGORY = '//span[@class="zg_hrsr_ladder"]//a[text()="Skin Care"]'
+
+def check_valid(asin):
     page = requests.get('https://www.amazon.com/dp/' + asin, headers = {'User-Agent': random.choice(useragent_strings)})
     parser = html.fromstring(page.content)
     avail = parser.xpath(XPATH_AVAILABILITY)
     # if len(avail) == 0:
     #     print(asin + " not available")
-    return (len(avail) != 0)
+    is_skin_care = parser.xpath(XPATH_SUBCATAGORY)
+    # if not is_skin_care:
+    #     print("is skin care")
+
+    return (len(avail) != 0 and is_skin_care)
 
 def get_reviews():
+    sleep_duration = 4 
+    print(str(len(urls)) + " pages in total, expect more than " \
+        + str(sleep_duration * len(urls)) + " seconds")
+    sys.stdout.flush()
     num_reviews = 0
     try:
         while urls:
-            sleep(3)
+            sleep(sleep_duration)
             url = urls[0]
             rl = deque()
             page = requests.get(url, headers = {'User-Agent': random.choice(useragent_strings)})
@@ -109,7 +124,6 @@ def main():
     pkl_filename = 'reviews.p'
 
     print("hi")
-    print(min_num_reviews)
 
     # Load URL queue
     if os.path.exists(url_queue_filename):
@@ -132,9 +146,11 @@ def main():
             for asin in asin_file:
                 asin = asin.strip()
                 if asin != prev_asin:
-                    if count >= min_num_reviews and count <= max_num_reviews and check_availability(asin):
-                        add_asin(asin)
-                        asin_filtered.write(asin + '\n')
+                    if count >= min_num_reviews \
+                      and count < max_num_reviews \
+                      and check_valid(prev_asin):
+                        add_asin(prev_asin)
+                        asin_filtered.write(prev_asin + '\n')
 
                     count = 1
                     prev_asin = asin
