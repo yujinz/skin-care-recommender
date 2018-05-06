@@ -20,14 +20,24 @@ class Review:
         self.summary = summary
         self.helpful = helpful
 
+def get_agent_and_proxy():
+    with open('useragent-strings.txt', 'r') as file:
+        useragent_strings = file.read().split('\n')
+    with open('./proxies.txt') as file:
+        proxy_list = []
+        for i in file.readlines():
+            if len(i) > 5:
+                if i[:4] != 'http':
+                    proxy_list.append('http://'+i.split('\n')[0])
+                else:
+                    proxy_list.append(i.split('\n')[0])
+        proxy_list = list(set(proxy_list))
+    return useragent_strings, proxy_list
 
 url_queue_filename = 'url_paused.p'
-
-with open('useragent-strings.txt', 'r') as file:
-    useragent_strings = file.read().split('\n')
-
 reviews_list = deque()
 urls = deque()
+useragent_strings, proxy_list = get_agent_and_proxy()
 
 def add_asin(asin):
     print("add " + asin)
@@ -55,7 +65,9 @@ XPATH_AVAILABILITY = '//div[@id="availability-brief"]//text()'
 XPATH_SUBCATAGORY = '//span[@class="zg_hrsr_ladder"]//a[text()="Skin Care"]'
 
 def check_valid(asin):
-    page = requests.get('https://www.amazon.com/dp/' + asin, headers = {'User-Agent': random.choice(useragent_strings)})
+    page = requests.get('https://www.amazon.com/dp/' + asin, 
+        headers = {'User-Agent': random.choice(useragent_strings)},
+        proxies = {"http":"{}".format(random.choice(proxy_list))})
     parser = html.fromstring(page.content)
     avail = parser.xpath(XPATH_AVAILABILITY)
     # if len(avail) == 0:
@@ -67,11 +79,15 @@ def check_valid(asin):
     return (len(avail) != 0 and is_skin_care)
 
 def get_reviews():
-    sleep_duration = 4 
+    global urls
+    sleep_duration = 5
+    num_try = 3
     print(str(len(urls)) + " pages in total, expect more than " \
         + str(sleep_duration * len(urls)) + " seconds")
     sys.stdout.flush()
+
     num_reviews = 0
+    try_again_list = deque()
     try:
         while urls:
             sleep(sleep_duration)
@@ -81,7 +97,9 @@ def get_reviews():
             parser = html.fromstring(page.content)
             reviews = parser.xpath('//*[contains(@id, "customer_review")]')
             if not reviews:
+                try_again_list.append(url)
                 print('No reviews found for', url)
+                sys.stdout.flush()
             for review in reviews:
                 rating = review.xpath('.//i[@data-hook="review-star-rating"]//text()')[0]
                 summary = review.xpath('.//a[@data-hook="review-title"]//text()')[0]
@@ -104,6 +122,13 @@ def get_reviews():
             print('Got ', num_reviews, ' reviews')
             urls.popleft()
             reviews_list.extend(rl)
+
+            if len(urls) == 0 and len(try_again_list) != 0 and num_try > 0:
+                num_try -= 1
+                urls = try_again_list
+                try_again_list = []
+                print("retry " + str(len(urls)) + " pages")
+
         # Queue is empty, remove queue.p file
         if os.path.exists(url_queue_filename):
             os.remove(url_queue_filename)
@@ -151,7 +176,6 @@ def main():
                       and check_valid(prev_asin):
                         add_asin(prev_asin)
                         asin_filtered.write(prev_asin + '\n')
-
                     count = 1
                     prev_asin = asin
                 else:
@@ -159,6 +183,8 @@ def main():
         asin_filtered.close()
         print('ASINs loaded in queue')
 
+    print(len(urls))
+    
     get_reviews()
 
     with open(pkl_filename, 'wb') as pkl_file:
