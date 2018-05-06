@@ -136,7 +136,7 @@ def get_reviews():
             if len(urls) == 0 and len(try_again_list) != 0 and num_try > 0:
                 num_try -= 1
                 urls = try_again_list
-                try_again_list = []
+                try_again_list = deque()
                 print("retry " + str(len(urls)) + " pages")
 
         # Queue is empty, remove queue.p file
