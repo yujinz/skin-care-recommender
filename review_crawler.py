@@ -34,10 +34,20 @@ def get_agent_and_proxy():
         proxy_list = list(set(proxy_list))
     return useragent_strings, proxy_list
 
-url_queue_filename = 'url_paused.p'
+url_queue_filename = 'urls_paused.p'
+pkl_filename = 'reviews.p'
 reviews_list = deque()
 urls = deque()
 useragent_strings, proxy_list = get_agent_and_proxy()
+
+def signal_handler(signal, frame):
+    print('You pressed Ctrl+C!')
+    print('Stopped at ', urls[0])
+    with open(url_queue_filename, 'wb') as url_queue_file:
+        _pickle.dump(urls, url_queue_file)
+    with open(pkl_filename, 'wb') as pkl_file:
+        _pickle.dump(reviews_list, pkl_file)
+    sys.exit(0)
 
 def add_asin(asin):
     print("add " + asin)
@@ -138,15 +148,17 @@ def get_reviews():
         print(e)
         print(e.args)
         print('Stopped at ', urls[0])
-        with open('queue.p', 'wb') as url_queue_file:
+        with open(url_queue_filename, 'wb') as url_queue_file:
             _pickle.dump(urls, url_queue_file)
+        with open(pkl_filename, 'wb') as pkl_file:
+            _pickle.dump(reviews_list, pkl_file)
 
 
 def main():
     asin_filename = sys.argv[1]
     min_num_reviews = int(sys.argv[2])
     max_num_reviews = int(sys.argv[3])
-    pkl_filename = 'reviews.p'
+    signal.signal(signal.SIGINT, signal_handler)
 
     print("hi")
 
@@ -191,7 +203,7 @@ def main():
         _pickle.dump(reviews_list, pkl_file)
     with open('reviews.json', 'w') as json_file:
         simplejson.dump([r.__dict__ for r in list(reviews_list)], json_file)
-    print(len(reviews_list))
+    print(str(len(reviews_list)) + " pages crawled")
 
 if __name__ == '__main__':
     main()
