@@ -91,9 +91,7 @@ if __name__ == '__main__':
     user_input = raw_input("Enter your query: ") 
     query.content(user_input)
     initial_results = ranker.score(idx, query, doc_num)
-    print(initial_results)
     reviewData = loadData()
-    print(reviewData)
 
     '''modify alpha(the influence of the overall score) here'''
     top_results = combineReviewscore(0.3,initial_results,reviewData)
